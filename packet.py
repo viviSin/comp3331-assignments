@@ -7,7 +7,7 @@
 # globals/psuedo "#defines"
 
 # positions within the list
-SYN_NUM     = 0
+SEQ_NUM     = 0
 ACK_NUM     = 1
 FLAGS       = 2
 DEST_PORT   = 3
@@ -33,17 +33,17 @@ def create_packet():
    return packet
 
 
-# set and get syn/ack numbers
-def set_syn_num(packet, value):
-   packet[SYN_NUM] = value
+# set and get seq/ack numbers
+def set_seq_num(packet, value):
+   packet[SEQ_NUM] = value
    return packet
 
 def set_ack_num(packet, value):
    packet[ACK_NUM] = value
    return packet
 
-def get_syn_num(packet):
-   return packet[SYN_NUM]
+def get_seq_num(packet):
+   return packet[SEQ_NUM]
 
 def get_ack_num(packet):
    return packet[ACK_NUM]
@@ -90,6 +90,19 @@ def is_data(packet):
    result = packet[FLAGS] & DATA_FLAG
    return result == DATA_FLAG
 
+def get_flags(packet):
+   flags = ""
+
+   if (is_syn(packet)):
+      flags += "S"
+   if (is_ack(packet)):
+      flags += "A"
+   if (is_fin(packet)):
+      flags += "F"
+   if (is_data(packet)):
+      flags += "D"
+
+   return flags
 
 # set and get ports
 # TODO: redundant?
@@ -113,11 +126,11 @@ def get_src_port(packet):
 
 
 # set and get applicaton data/message
-def add_msg(packet, message):
+def add_data(packet, message):
    # print "add msg"
    packet[MESSAGE] = message
    return packet
 
-def get_msg(packet):
+def get_data(packet):
    # print "get msg"
-   return packet[MESSAGE]
+   return str(packet[MESSAGE])
