@@ -11,20 +11,18 @@ from packet import *
 
 
 # global / #define's
-HOST_SENDR  = 0
-HOST_RECVR  = 1
 
-DIR_SENT = 0
-DIR_RECV = 1
-DIR_DROP = 2
+HOST_SENDR        = 0
+HOST_RECVR        = 1
+
+DIR_SENT          = 0
+DIR_RECV          = 1
+DIR_DROP          = 2
 
 SENDR_LOG   = "Sender_log.txt"
 RECVR_LOG   = "Receiver_log.txt"
 
-
-#def current_time():
-#   diff = (time.time() - logger_start_time) * 1000
-#   return int(diff)
+debug = True
 
 
 # if any log files exist, rename them to back them up
@@ -69,13 +67,9 @@ def create_new():
 
    print "[*] New logfiles created"
 
-   #global logger_start_time
-   #logger_start_time = time.time()
-
 
 # write to file
 def log(host, time, direction, packet):
-#def log(host, direction, packet):
    global DIR_SENT
    global HOST_SENDR
    global HOST_RECVR
@@ -95,7 +89,7 @@ def log(host, time, direction, packet):
    log_entry += str(get_ack_num(packet))
    log_entry += "\n"
 
-   print "LOGGER HERE. entry: \n" + log_entry
+   if (debug): print "LOGGER HERE. entry: \n" + log_entry
 
    # dir  time   flg seq bytes ack
    # snd  34.335 S   121 0  0
@@ -151,11 +145,11 @@ def do_stats_sendr():
       logfile = open(SENDR_LOG, 'a')
       logfile.write("\n\n")
       logfile.write("Total statistics\n")
-      logfile.write("Bytes transmitted:     " + str(bytes_transmitted) + "\n")
-      logfile.write("Packets sent:          " + str(packets_sent) + "\n")
-      logfile.write("Packets dropped:       " + str(packets_dropped) + "\n")
-      logfile.write("Packets transmitted:   " + str(packets_retrans) + "\n")
-      logfile.write("Duplicate ACKs:        " + str(dup_acks) + "\n")
+      logfile.write(" * Bytes transmitted:     " + str(bytes_transmitted) + "\n")
+      logfile.write(" * Packets sent:          " + str(packets_sent) + "\n")
+      logfile.write(" * Packets dropped:       " + str(packets_dropped) + "\n")
+      logfile.write(" * Packets transmitted:   " + str(packets_retrans) + "\n")
+      logfile.write(" * Duplicate ACKs:        " + str(dup_acks) + "\n")
       logfile.close()
    except:
       print "[*] Error: couldn't open " + SENDR_LOG + " for appending"
@@ -172,9 +166,9 @@ def do_stats_recvr():
       logfile = open(RECVR_LOG, 'a')
       logfile.write("\n\n")
       logfile.write("Total statistics\n")
-      logfile.write("Bytes received:      " + str(bytes_recvd) + "\n")
-      logfile.write("Packets received:    " + str(packets_recvd) + "\n")
-      logfile.write("Duplicate packets:   " + str(dup_packets) + "\n")
+      logfile.write(" * Bytes received:      " + str(bytes_recvd) + "\n")
+      logfile.write(" * Packets received:    " + str(packets_recvd) + "\n")
+      logfile.write(" * Duplicate packets:   " + str(dup_packets) + "\n")
       logfile.close()
    except:
       print "[*] Error: couldn't open " + RECVR_LOG + " for appending"

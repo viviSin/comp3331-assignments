@@ -65,13 +65,11 @@ def main():
       sender_seed	      = time.time()
 
 
-   # random number for.. ?
+   # seed
    random_seed = random.seed(sender_seed)
-   #random_num  = round(random.random())
-   #if (debug): print "time: " + str(sender_seed) + ", new random: " + str(random_num)
 
 
-   # create timer
+   # catch current time
    sender_start_time = time.time()
 
 
@@ -91,7 +89,7 @@ def main():
 
    # read file, perform rdt
    buffer = read_file(sender_filename)
-   rdt(receiver, receiver_host, receiver_port, buffer, sender_mss, sender_mws, sender_timeout, sender_pdrop)
+   rdt(receiver, receiver_host, receiver_port, buffer, sender_mss, sender_mws, sender_timeout, random_seed, sender_pdrop)
 
 
    # teardown connection
@@ -99,12 +97,10 @@ def main():
    check_state(STATE_FINISHED, "could not teardown")
 
 
-   # logger.produce_stats()
+   # generate final statistics
    logger.do_stats_sendr()
 
    print "\ndone. goodbye"
-
-
 
 
 # perform three-way handshake
@@ -113,26 +109,13 @@ def handshake(receiver, receiver_host, receiver_port, sender_timeout):
 
    check_state(STATE_INACTIVE, "trying to connect when state != inactive")
 
-   #if (sender_state != STATE_INACTIVE):
-   #   print "[*] error: trying to connect when state != inactive"
-   #   sys.exit
-
-
-   #sender_host = receiver.getsockname()[0]
-   #sender_port = receiver.getsockname()[1]
-   #print receiver.getsockname()
-
    # create packet
    p = create_packet()
    p = set_syn(p)
 
-   #p = set_dest_port(p, receiver_port)
-   #p = set_src_port(p, sender_port)
-
    # send SYN packet
    receiver.sendto(str(p), (receiver_host, receiver_port))
    logger.log(host, current_time(), DIR_SENT, p)
-   #logger.log(host, DIR_SENT, p)
    sender_state = STATE_INIT
 
    if (debug): print "handshake #1 sent"
@@ -141,11 +124,8 @@ def handshake(receiver, receiver_host, receiver_port, sender_timeout):
       response, addr = receiver.recvfrom(1024)
       p = eval(response)
       logger.log(host, current_time(), DIR_RECV, p)
-      #logger.log(host, DIR_RECV, p)
 
       if (debug): print "response received: #" + response + "#"
-      #if (debug): print "bits: " + str(bin(p[2]))
-
 
       if (is_syn(p) and is_ack(p) and get_seq_num(p) == 0 and get_ack_num(p) == 1):
          p = create_packet()
@@ -156,8 +136,8 @@ def handshake(receiver, receiver_host, receiver_port, sender_timeout):
          # send 3rd packet: ACK (with no payload data)
          receiver.sendto(str(p), (receiver_host, receiver_port))
          logger.log(host, current_time(), DIR_SENT, p)
-         #logger.log(host, DIR_SENT, p)
          sender_state = STATE_CONNECTED
+
          print "[*] connected to " + receiver_host + ":" + str(receiver_port)
 
       else:
@@ -185,7 +165,7 @@ def read_file(filename):
 
 # perform reliable data transfer
 def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss, 
-   sender_mws, sender_timeout, sender_pdrop):
+   sender_mws, sender_timeout, seed, sender_pdrop):
 
    global debug
    file_sent      = False
@@ -208,7 +188,7 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
 
             # send packet
             p = new_data_packet(buffer, next_segment, sender_mss)
-            PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, sender_pdrop)
+            PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, seed, sender_pdrop)
 
       
       # wait for ACKs
@@ -216,7 +196,6 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
          response, addr = receiver.recvfrom(1024)
          p = eval(response)
          logger.log(host, current_time(), DIR_RECV, p)
-         #logger.log(host, DIR_RECV, p)
 
          if (debug): print "response received: #" + response + "#"
 
@@ -234,7 +213,7 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
                      del window[i]
                   i += 1
 
-               # set new base?
+               # get new base
                window_base = window[0]
 
          else:
@@ -249,7 +228,7 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
          # resend all packets in the window
          while (i < len(window)):
             p = new_data_packet(buffer, window[i], sender_mss)
-            PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, sender_pdrop)
+            PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, seed, sender_pdrop)
             i += 1;
 
 
@@ -270,7 +249,6 @@ def teardown(receiver, receiver_host, receiver_port):
    # send FIN packet
    receiver.sendto(str(p), (receiver_host, receiver_port))
    logger.log(host, current_time(), DIR_SENT, p)
-   #logger.log(host, DIR_SENT, p)
    sender_state = STATE_TEARDOWN
 
    if (debug): print "teardown #1 sent"
@@ -281,7 +259,6 @@ def teardown(receiver, receiver_host, receiver_port):
          response, addr = receiver.recvfrom(1024)
          p = eval(response)
          logger.log(host, current_time(), DIR_RECV, p)
-         #logger.log(host, DIR_RECV, p)
 
          if (debug): print "response received: #" + response + "#"
 
@@ -308,7 +285,6 @@ def teardown(receiver, receiver_host, receiver_port):
 
             receiver.sendto(str(p), (receiver_host, receiver_port))
             logger.log(host, current_time(), DIR_SENT, p)
-            #logger.log(host, DIR_SENT, p)
             sender_state = STATE_FINISHED
 
             if (debug): print "teardown (S): received last packet (FIN\
@@ -324,6 +300,7 @@ def teardown(receiver, receiver_host, receiver_port):
 
 
 ## helper functions
+
 
 # get current time elapsed
 def current_time():

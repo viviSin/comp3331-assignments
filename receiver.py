@@ -11,26 +11,25 @@ from packet import *
 
 
 # globals/psuedo "#defines"
-STATE_INACTIVE    = 0
-STATE_INIT        = 1
-STATE_CONNECTED   = 2
-STATE_TEARDOWN    = 3
+STATE_INACTIVE       = 0
+STATE_INIT           = 1
+STATE_CONNECTED      = 2
+STATE_TEARDOWN       = 3
 
-HOST_SENDR        = 0
-HOST_RECVR        = 1
+HOST_SENDR           = 0
+HOST_RECVR           = 1
 
-DIR_SENT = 0
-DIR_RECV = 1
-DIR_DROP = 2
+DIR_SENT             = 0
+DIR_RECV             = 1
+DIR_DROP             = 2
 
 # global variables
-debug             = True
-receiver_state    = STATE_INACTIVE
-receiver_logfile  = "Receiver_log.txt"
-receiver_syn_acc  = 0
-receiver_ack_acc  = 0
-receiver_start_time        = 0
-host              = HOST_RECVR
+debug                = True
+receiver_state       = STATE_INACTIVE
+receiver_syn_acc     = 0
+receiver_ack_acc     = 0
+receiver_start_time  = 0
+host                 = HOST_RECVR
 
 
 def main():
@@ -72,7 +71,6 @@ def main():
          receiver_start_time = time.time()
 
       logger.log(host, current_time(), DIR_RECV, p)
-      #logger.log(host, DIR_RECV, p)
 
 
       sender_host = sender[0]
@@ -83,19 +81,11 @@ def main():
       if (debug): print "\tstate: " + str(receiver_state)
       if (debug): print ""
 
-      #sender_port = get_src_port(p)
-      #print sender_host
-      #print sender_port
-
 
       if (receiver_state == STATE_INACTIVE):
          # receive first handshake packet, send response
 
-         #if (debug): print "(inactive state)"
          if (is_syn(p) and get_seq_num(p) == 0 and get_ack_num(p) == 0):
-         #if (is_syn(p) and not is_ack(p) and not is_data(p) and not is_fin(p)):
-
-            # sender_port = int(get_src_port(p))
 
             p = create_packet()
             p = set_syn(p)
@@ -105,7 +95,7 @@ def main():
 
             receiver.sendto(str(p), (sender_host, sender_port))
             logger.log(host, current_time(), DIR_SENT, p)
-            #logger.log(host, DIR_SENT, p)
+
             receiver_state = STATE_INIT
 
             if (debug): print "handshake #2: R -> S"
@@ -115,7 +105,6 @@ def main():
          # state is now considered "connected"
 
          if (is_ack(p) and get_seq_num(p) == 1 and get_ack_num(p) == 1):
-         #if (is_ack(p) and not is_syn(p) and not is_fin(p) and not is_data(p)):
             receiver_state = STATE_CONNECTED
             print "[*] connected to " + sender_host + ":" + str(sender_port)
 
@@ -125,6 +114,7 @@ def main():
             # get data out of packet
             # write to file
             # send ACK
+
             buffer = get_data(p)
             append_to_file(receiver_filename, buffer)
 
@@ -146,7 +136,7 @@ def main():
 
             receiver.sendto(str(p), (sender_host, sender_port))
             logger.log(host, current_time(), DIR_SENT, p)
-            #logger.log(host, DIR_SENT, p)
+
             receiver_state = STATE_TEARDOWN
 
             # send FIN packet
@@ -156,10 +146,18 @@ def main():
             receiver.sendto(str(p), (sender_host, sender_port))
 
       elif (receiver_state == STATE_TEARDOWN):
+
          if (is_ack(p)):
+            # teardown complete
             receiver_state = STATE_INACTIVE
+
+            # rdt finish, generate statistics
             logger.do_stats_recvr()
+
             if (debug): print "teardown (R): last packet received. teardown complete. state -> INACTIVE"
+
+
+## helper functions
 
 
 # append buffer to file
@@ -173,12 +171,12 @@ def append_to_file(filename, buffer):
 
    return buffer
 
+
 # get current time elapsed
 def current_time():
-   #global receiver_start_time
    diff = (time.time() - receiver_start_time) * 1000
-   print "CURRENT TIME CALLED: " + str(int(diff))
-   print "\t" + (str(time.time())) + " - " + str(receiver_start_time)
+   if (debug): print "CURRENT TIME CALLED: " + str(int(diff))
+   if (debug): print "\t" + (str(time.time())) + " - " + str(receiver_start_time)
    return int(diff)
 
 main()
