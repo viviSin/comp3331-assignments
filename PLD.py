@@ -4,11 +4,10 @@
 # RTP over UDP: PLD.py - PLD module
 
 
-import logger, random, socket, time
+import logger, random, socket
 
 
 # globals / #define's
-debug             = True
 
 HOST_SENDR        = 0
 HOST_RECVR        = 1
@@ -17,10 +16,12 @@ DIR_SENT          = 0
 DIR_RECV          = 1
 DIR_DROP          = 2
 
+debug             = True
 
-def handle(receiver, packet, current_time, receiver_host, receiver_port, pdrop):
 
-   random.seed(time.time())
+def handle(receiver, packet, current_time, receiver_host, receiver_port, seed, pdrop):
+
+   random.seed(seed)
    random_num = random.random()
 
    if (random_num > pdrop):
