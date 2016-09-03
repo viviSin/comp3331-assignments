@@ -10,8 +10,6 @@
 SEQ_NUM     = 0
 ACK_NUM     = 1
 FLAGS       = 2
-#DEST_PORT   = 3
-#SRC_PORT    = 4
 MESSAGE     = 3
 
 # flags
@@ -23,12 +21,6 @@ DATA_FLAG   = 0b1000
 
 # create packet
 def create_packet():
-   # print "create packet"
-   # (syn #, ack #, flags, dest port, src port, msg)
-   # packet = [0, 0, 0, 0, 0, 0]
-   ## print type(packet)
-   # # print type(packet[FLAGS])
-
    packet = [0, 0, 0, 0, 0, 0]
    return packet
 
@@ -103,26 +95,6 @@ def get_flags(packet):
       flags += "D"
 
    return flags
-
-# set and get ports
-# TODO: redundant?
-def set_dest_port(packet, port):
-   # print "set dest port"
-   packet[DEST_PORT] = port
-   return packet
-
-def set_src_port(packet, port):
-   # print "set src port"
-   packet[SRC_PORT] = port
-   return packet
-
-def get_dest_port(packet):
-   # print "get dest port"
-   return packet[DEST_PORT]
-
-def get_src_port(packet):
-   # print "get src port"
-   return packet[SRC_PORT]
 
 
 # set and get applicaton data/message
