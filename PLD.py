@@ -5,9 +5,9 @@
 
 
 import logger, random, socket, time
-#from sender import socket
 
 
+# globals / #define's
 debug             = True
 
 HOST_SENDR        = 0

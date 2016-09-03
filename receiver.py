@@ -121,6 +121,22 @@ def main():
 
       elif (receiver_state == STATE_CONNECTED):
    
+         if (is_data(p)):
+            # get data out of packet
+            # write to file
+            # send ACK
+            buffer = get_data(p)
+            append_to_file(receiver_filename, buffer)
+
+            seq_num = get_seq_num(p)
+
+            p = create_packet()
+            p = set_ack(p)
+            p = set_ack_num(p, seq_num + 1)
+
+            receiver.sendto(str(p), (sender_host, sender_port))
+            logger.log(host, current_time(), DIR_SENT, p)
+
          if (is_fin(p)):
             if (debug): print "teardown (R): FIN received. sending ACK"
             
@@ -145,6 +161,17 @@ def main():
             logger.do_stats_recvr()
             if (debug): print "teardown (R): last packet received. teardown complete. state -> INACTIVE"
 
+
+# append buffer to file
+def append_to_file(filename, buffer):
+   try:
+      file_descriptor = open(filename, "a")
+      file_descriptor.write(buffer)
+      file_descriptor.close()
+   except:
+      sys.exit("[*] fatal: append to file exception to " + filename)
+
+   return buffer
 
 # get current time elapsed
 def current_time():

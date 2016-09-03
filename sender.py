@@ -59,14 +59,14 @@ def main():
       receiver_host	   = "localhost"
       receiver_port	   = 7999
       sender_filename	= "wot"
-      sender_mws	      = -1
-      sender_mss	      = 1
+      sender_mws	      = 5
+      sender_mss	      = 2
       sender_timeout	   = 3
-      sender_pdrop	   = -1
+      sender_pdrop	   = 0
       sender_seed	      = time.time()
 
 
-   # create random number for dropping packets
+   # random number for.. ?
    random_seed = random.seed(sender_seed)
    #random_num  = round(random.random())
    #if (debug): print "time: " + str(sender_seed) + ", new random: " + str(random_num)
@@ -91,8 +91,8 @@ def main():
 
 
    # read file, perform rdt
-   #buffer = read_file(sender_filename)
-   #rdt(receiver, buffer, sender_mss, sender_mws, sender_timeout, random_seed)
+   buffer = read_file(sender_filename)
+   rdt(receiver, receiver_host, receiver_port, buffer, sender_mss, sender_mws, sender_timeout, sender_pdrop)
 
    teardown(receiver, receiver_host, receiver_port)
    check_state(STATE_FINISHED, "could not teardown")
@@ -181,6 +181,7 @@ def handshake(receiver, receiver_host, receiver_port, sender_timeout):
 
 
 
+# open/read file
 def read_file(filename):
 
    try:
@@ -190,17 +191,18 @@ def read_file(filename):
    except:
       sys.exit("fatal: no such file " + filename + " " + e)
 
-   buffer = buffer.rstrip()   # TODO remove
-
    return buffer
 
 
-def rdt(receiver, buffer, sender_mss, sender_mws, sender_timeout, 
-   random_seed):
+# perform reliable data transfer
+def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss, 
+   sender_mws, sender_timeout, sender_pdrop):
 
-   file_sent   = False
-   window      = []
-   window_base = 0
+   global debug
+   file_sent      = False
+   window         = []
+   window_base    = 0
+   next_segment   = 0
 
    while (file_sent == False):
       # fill window, send packets
@@ -208,23 +210,24 @@ def rdt(receiver, buffer, sender_mss, sender_mws, sender_timeout,
       # receive ACKs, remove from window, inc window base
 
       # fill window up to MWS, send packets
-      while (len(window) < mws):
+      while (len(window) < sender_mws) and (next_segment < len(buffer)):
 
          # if base+mss < len(buffer): add it to window & send packet
-         next_segment = window_base + (mss * len(window))
+         next_segment = window_base + (sender_mss * len(window))
 
          #if (window_base + (mss * len(window)) < len(buffer)):
-         if (next_segmant < len(buffer)):
+         if (next_segment < len(buffer)):
             #window.append(window_base + (mss * len(window)))
             window.append(next_segment)
 
-            p = new_data_packet(buffer, next_segment, mss)
+            p = new_data_packet(buffer, next_segment, sender_mss)
       
             # send packet
-            pld.handle(socket, p, currenttime(), receiver_host, 
-               receiver_port, random_seed)
+            PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, sender_pdrop)
             #receiver.sendto(str(p), (receiver_host, receiver_port))
             #logger.log(host, current_time(), DIR_SENT, p)
+            if (debug): print "[*] packet sent. seq " + str(next_segment)\
++ ": " + get_data(p)
       
       # wait for ACKs
       try:
@@ -236,43 +239,50 @@ def rdt(receiver, buffer, sender_mss, sender_mws, sender_timeout,
          if (debug): print "response received: #" + response + "#"
 
          # get ACK num, remove from window
-         ack_num = get_ack_num(p)
-         i = 0
+         if (is_ack(p)):
+            ack_num = get_ack_num(p)
 
-         while (i < len(window)):
-            if (window[i] < ack_num):
-               del window[i]
-            i += 1
+            if (ack_num >= len(buffer)):
+               file_sent = True
+            else:
+               i = 0
 
-         # set new base?
-         window_base = window[0]
+               while (i < len(window)):
+                  if (window[i] < ack_num):
+                     del window[i]
+                  i += 1
+
+               # set new base?
+               window_base = window[0]
+
+         else:
+            if (debug): print "[*] error: received non-ack packet during rdt"
 
       except socket.timeout:
-         # resend all packets in the window
-         # log as dropped?
+
          print "[*] timed out. resend window to " + receiver_host + ":" + str(receiver_port)
          i = 0
 
+         # resend all packets in the window
          while (i < len(window)):
-            p = new_data_packet(buffer, window[i], mss)
+            p = new_data_packet(buffer, window[i], sender_mss)
             # logger.log(host, current_time(), DIR_DROP, p)
             # receiver.sendto(str(p), (receiver_host, receiver_port))
             # logger.log(host, current_time(), DIR_SENT, p)
 
-            pld.handle(socket, p, currenttime(), receiver_host, 
-               receiver_port, random_seed)
+            PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, sender_pdrop)
             i += 1;
 
 def new_data_packet(buffer, next_segment, mss):
    p = create_packet()
-   p = set_seq_num(next_segment)
+   p = set_seq_num(p, next_segment)
    # p = set_ack_num  .. don't need ack for sender->recv
-   p = set_data()
+   p = set_data(p)
 
-   if ((next_segmant + mss) < len(buffer)):
-      p = add_data(buffer[next_segment:next_segmet+mss])
+   if ((next_segment + mss) < len(buffer)):
+      p = add_data(p, buffer[next_segment:next_segment+mss])
    else:
-      p = add_data(buffer[next_segment:])
+      p = add_data(p, buffer[next_segment:])
 
    return p
 

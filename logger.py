@@ -37,7 +37,7 @@ def create_new():
       print "[*] Previous logfiles detected. Backing up.."
 
       for f in result:
-         mtime = os.path.getmtime(f)
+         mtime = os.path.getctime(f)
          mtime_readable = datetime.datetime.fromtimestamp(mtime)   
          filename_split = f.split('.', 2)
          new_filename = str(filename_split[0]) + " " + str(mtime_readable) + ".txt"
