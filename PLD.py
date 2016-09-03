@@ -4,24 +4,32 @@
 # RTP over UDP: PLD.py - PLD module
 
 
-import logger, random
+import logger, random, socket, time
+#from sender import socket
 
 
-debug       = True
-HOST_SENDR  = 0
+debug             = True
 
-def handle(socket, packet, time, receiver_host, receiver_port, random_seed):
+HOST_SENDR        = 0
+HOST_RECVR        = 1
 
-   pdrop = round(random.random())
+DIR_SENT          = 0
+DIR_RECV          = 1
+DIR_DROP          = 2
 
-   if (pdrop == 1):
+def handle(r, packet, current_time, receiver_host, receiver_port, pdrop):
+
+   random.seed(time.time())
+   random_num = random.random()
+
+   if (random_num > pdrop):
       # send packet
-      socket.sendto(str(p), (receiver_host, receiver_port))
-      logger.log(HOST_SENDR, time, DIR_SENT, p)
-      if (debug): print "pld (" + pdrop + "): sent"
+      r.sendto(str(packet), (receiver_host, receiver_port))
+      logger.log(HOST_SENDR, current_time, DIR_SENT, packet)
+      if (debug): print "pld (" + str(pdrop) + "): sent"
 
    else:
-      logger.log(HOST_SENDR, time, DIR_DROP, p)
-      if (debug): print "pld (" + pdrop + "): dropped"
       
-   print "PLD"
+      # drop packet
+      logger.log(HOST_SENDR, current_time, DIR_DROP, packet)
+      if (debug): print "pld (" + str(pdrop) + "): dropped"
