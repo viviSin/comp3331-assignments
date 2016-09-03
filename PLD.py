@@ -1,6 +1,6 @@
 # COMP3331 Assignment One
 # Luke Cusack, z5078476
-# August 2016
+# August, September 2016
 # RTP over UDP: PLD.py - PLD module
 
 
@@ -17,16 +17,18 @@ DIR_SENT          = 0
 DIR_RECV          = 1
 DIR_DROP          = 2
 
-def handle(r, packet, current_time, receiver_host, receiver_port, pdrop):
+
+def handle(receiver, packet, current_time, receiver_host, receiver_port, pdrop):
 
    random.seed(time.time())
    random_num = random.random()
 
    if (random_num > pdrop):
+
       # send packet
-      r.sendto(str(packet), (receiver_host, receiver_port))
+      receiver.sendto(str(packet), (receiver_host, receiver_port))
       logger.log(HOST_SENDR, current_time, DIR_SENT, packet)
-      if (debug): print "pld (" + str(pdrop) + "): sent"
+      if (debug): print "pld (" + str(random_num) + " > " + str(pdrop) + ") sent"
 
    else:
       

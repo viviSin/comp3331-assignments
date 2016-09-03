@@ -1,6 +1,6 @@
 # COMP3331 Assignment One
 # Luke Cusack, z5078476
-# August 2016
+# August, September 2016
 # RTP over UDP: receiver.py
 
 # Usage: python receiver.py <receiver port> <filename>

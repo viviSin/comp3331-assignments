@@ -1,6 +1,6 @@
 # COMP3331 Assignment One
 # Luke Cusack, z5078476
-# August 2016
+# August, September 2016
 # RTP over UDP: sender.py
 
 # usage: python sender.py receiver_host_ip receiver_port file.txt MWS MSS timeout pdrop seed
@@ -29,12 +29,11 @@ debug             = True
 sender_state      = STATE_INACTIVE
 sender_start_time = 0
 host              = HOST_SENDR
-#sender_seq_acc    = 0
-#sender_ack_acc    = 0
+
 
 def main():
    
-   global start_time
+   global sender_start_time
    global host
 
    if (not debug):
@@ -71,10 +70,10 @@ def main():
    #random_num  = round(random.random())
    #if (debug): print "time: " + str(sender_seed) + ", new random: " + str(random_num)
 
+
    # create timer
-   #timer = timeit.default_timer()
-   global sender_start_time
    sender_start_time = time.time()
+
 
    # initialise log files
    logger.create_new()
@@ -94,6 +93,8 @@ def main():
    buffer = read_file(sender_filename)
    rdt(receiver, receiver_host, receiver_port, buffer, sender_mss, sender_mws, sender_timeout, sender_pdrop)
 
+
+   # teardown connection
    teardown(receiver, receiver_host, receiver_port)
    check_state(STATE_FINISHED, "could not teardown")
 
@@ -104,18 +105,6 @@ def main():
    print "\ndone. goodbye"
 
 
-# get current time elapsed
-def current_time():
-  #global start_time
-   diff = (time.time() - sender_start_time) * 1000
-   return int(diff)
-
-
-# check current state against expected state
-def check_state(state, error_msg):
-   if (sender_state != state):
-      print "[*] error: sender state != " + str(state) + ". " + error_msg
-      sys.exit()
 
 
 # perform three-way handshake
@@ -212,22 +201,15 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
       # fill window up to MWS, send packets
       while (len(window) < sender_mws) and (next_segment < len(buffer)):
 
-         # if base+mss < len(buffer): add it to window & send packet
          next_segment = window_base + (sender_mss * len(window))
 
-         #if (window_base + (mss * len(window)) < len(buffer)):
          if (next_segment < len(buffer)):
-            #window.append(window_base + (mss * len(window)))
             window.append(next_segment)
 
-            p = new_data_packet(buffer, next_segment, sender_mss)
-      
             # send packet
+            p = new_data_packet(buffer, next_segment, sender_mss)
             PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, sender_pdrop)
-            #receiver.sendto(str(p), (receiver_host, receiver_port))
-            #logger.log(host, current_time(), DIR_SENT, p)
-            if (debug): print "[*] packet sent. seq " + str(next_segment)\
-+ ": " + get_data(p)
+
       
       # wait for ACKs
       try:
@@ -261,37 +243,19 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
       except socket.timeout:
 
          print "[*] timed out. resend window to " + receiver_host + ":" + str(receiver_port)
+
          i = 0
 
          # resend all packets in the window
          while (i < len(window)):
             p = new_data_packet(buffer, window[i], sender_mss)
-            # logger.log(host, current_time(), DIR_DROP, p)
-            # receiver.sendto(str(p), (receiver_host, receiver_port))
-            # logger.log(host, current_time(), DIR_SENT, p)
-
             PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, sender_pdrop)
             i += 1;
 
-def new_data_packet(buffer, next_segment, mss):
-   p = create_packet()
-   p = set_seq_num(p, next_segment)
-   # p = set_ack_num  .. don't need ack for sender->recv
-   p = set_data(p)
 
-   if ((next_segment + mss) < len(buffer)):
-      p = add_data(p, buffer[next_segment:next_segment+mss])
-   else:
-      p = add_data(p, buffer[next_segment:])
-
-   return p
-
-
-# teardown
+# teardown connection
 def teardown(receiver, receiver_host, receiver_port):
    global sender_state
-   #global sender_seq_acc
-   #global sender_ack_acc
 
    sender_seq_acc = 0
    sender_ack_acc = 0
@@ -359,4 +323,34 @@ def teardown(receiver, receiver_host, receiver_port):
          sys.exit()
 
 
+## helper functions
+
+# get current time elapsed
+def current_time():
+   diff = (time.time() - sender_start_time) * 1000
+   return int(diff)
+
+
+# check current state against expected state
+def check_state(state, error_msg):
+   if (sender_state != state):
+      print "[*] error: sender state != " + str(state) + ". " + error_msg
+      sys.exit()
+
+
+# create new data packet
+def new_data_packet(buffer, next_segment, mss):
+   p = create_packet()
+   p = set_seq_num(p, next_segment)
+   p = set_data(p)
+
+   if ((next_segment + mss) < len(buffer)):
+      p = add_data(p, buffer[next_segment:next_segment+mss])
+   else:
+      p = add_data(p, buffer[next_segment:])
+
+   return p
+
+
+# call main
 main()

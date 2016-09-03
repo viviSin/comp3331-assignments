@@ -1,6 +1,6 @@
 # COMP3331 Assignment One
 # Luke Cusack, z5078476
-# August 2016
+# August, September 2016
 # Packet handling interface
 
 
@@ -10,9 +10,9 @@
 SEQ_NUM     = 0
 ACK_NUM     = 1
 FLAGS       = 2
-DEST_PORT   = 3
-SRC_PORT    = 4
-MESSAGE     = 5
+#DEST_PORT   = 3
+#SRC_PORT    = 4
+MESSAGE     = 3
 
 # flags
 SYN_FLAG    = 0b0001

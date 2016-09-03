@@ -1,6 +1,6 @@
 # COMP3331 Assignment One
 # Luke Cusack, z5078476
-# August 2016
+# August, September 2016
 # Logger interface
 
 # <snd/rcv/drop> <time> <type of packet> <seq-number> <number-of- bytes> <ack-number>
@@ -128,13 +128,7 @@ def log(host, time, direction, packet):
       sys.exit()
 
 
-
 # transmission is completed, produce the statistics
-def produce_stats():
-   print "logger: produce_stats"
-   do_stats_sendr()
-   do_stats_recvr()
-
 def do_stats_sendr():
 # sender stats:
 # - Amount of Data Transferred (in bytes)
@@ -167,6 +161,8 @@ def do_stats_sendr():
       print "[*] Error: couldn't open " + SENDR_LOG + " for appending"
       sys.exit()
 
+
+# transmission is completed, produce the statistics
 def do_stats_recvr():
    bytes_recvd       = 0
    packets_recvd     = 0
