@@ -58,6 +58,7 @@ def main():
       receiver_host	   = "localhost"
       receiver_port	   = 7999
       sender_filename	= "wot"
+      #sender_filename	= "tests/test1.txt"
       sender_mws	      = 5
       sender_mss	      = 2
       sender_timeout	   = 3

@@ -6,7 +6,7 @@
 # <snd/rcv/drop> <time> <type of packet> <seq-number> <number-of- bytes> <ack-number>
 
 
-import sys, glob, os, datetime, time
+import sys, re, glob, os, datetime, time
 from packet import *
 
 
@@ -19,8 +19,19 @@ DIR_SENT          = 0
 DIR_RECV          = 1
 DIR_DROP          = 2
 
-SENDR_LOG   = "Sender_log.txt"
-RECVR_LOG   = "Receiver_log.txt"
+SENDR_LOG         = "Sender_log.txt"
+RECVR_LOG         = "Receiver_log.txt"
+
+STATE_INIT        = 1
+STATE_CONNECTED   = 2
+STATE_TEARDOWN    = 3
+
+STATS_DIR         = 0
+STATS_TIME        = 1
+STATS_FLAGS       = 2
+STATS_SEQ_NUM     = 3
+STATS_NUM_BYTES   = 4
+STATS_ACK_NUM     = 5
 
 debug = True
 
@@ -87,6 +98,10 @@ def log(host, time, direction, packet):
    log_entry += str(get_seq_num(packet)).ljust(5)
    log_entry += str(len(get_data(packet))).ljust(6)
    log_entry += str(get_ack_num(packet))
+
+   #if (debug):
+   #   log_entry += " - strlen: " + str(len(get_data(packet))) + "; #" + get_data(packet) + "#"
+
    log_entry += "\n"
 
    if (debug): print "LOGGER HERE. entry: \n" + log_entry
@@ -122,52 +137,163 @@ def log(host, time, direction, packet):
       sys.exit()
 
 
-# transmission is completed, produce the statistics
+# transmission is completed, produce statistics
 def do_stats_sendr():
-# sender stats:
-# - Amount of Data Transferred (in bytes)
-# - Number of Data Segments Sent (excluding retransmissions)
-# - Number of Packets Dropped (by the PLD module)
-# - Number of Packets Delayed (for the extended assignment only)
-# - Number of Retransmitted Segments
-# - Number of Duplicate Acknowledgements received
-   #global SENDR_LOG
-   #global RECVR_LOG
+
+   if (debug): print "[*] Producing Sender statistics"
+
+   # sender stats:
+   # - Amount of Data Transferred (in bytes)
+   # - Number of Data Segments Sent (excluding retransmissions)
+   # - Number of Packets Dropped (by the PLD module)
+   # - Number of Packets Delayed (for the extended assignment only)
+   # - Number of Retransmitted Segments
+   # - Number of Duplicate Acknowledgements received
 
    bytes_transmitted = 0
-   packets_sent       = 0
-   packets_dropped   = 0
-   #packets_delayed   = 0
-   packets_retrans   = 0
+   packets_sent      = []
+   packets_dropped   = []
+   packets_retrans   = []
+   acks_recvd        = []
    dup_acks          = 0
 
+   STATE             = STATE_INIT
+
+   # read logfile, collect stats
+   try:
+
+      # ignore header lines
+      logfile = open(SENDR_LOG, 'r')
+      logfile.readline()
+      logfile.readline()
+      logfile.readline()
+      logfile.readline()
+
+      # turn each line into a list to gather stats
+      for line in logfile.readlines():
+
+         as_list = re.sub(' +', ',', line.strip()) 
+         as_list = as_list.split(',')
+         as_list[STATS_TIME]        = int(as_list[STATS_TIME])
+         as_list[STATS_SEQ_NUM]     = int(as_list[STATS_SEQ_NUM])
+         as_list[STATS_NUM_BYTES]   = int(as_list[STATS_NUM_BYTES])
+         as_list[STATS_ACK_NUM]     = int(as_list[STATS_ACK_NUM])
+
+         #print as_list
+
+         if (as_list[STATS_DIR] == "snt"):
+            if (as_list[STATS_FLAGS] == "D"):
+               STATE = STATE_CONNECTED
+
+               packets_sent.append(as_list[STATS_SEQ_NUM])
+               bytes_transmitted += as_list[STATS_NUM_BYTES]
+
+               if (as_list[STATS_SEQ_NUM] in packets_dropped):
+                  packets_retrans.append(as_list[STATS_SEQ_NUM])
+
+            elif (as_list[STATS_FLAGS] == "F"):
+               STATE = STATE_TEARDOWN
+
+         elif (as_list[STATS_DIR] == "drop"):
+            packets_dropped.append(as_list[STATS_SEQ_NUM])
+
+         elif (as_list[STATS_DIR] == "rcv"):
+            if (STATE == STATE_CONNECTED):
+               if (as_list[STATS_ACK_NUM] in acks_recvd):
+                  dup_acks += 1
+               acks_recvd.append(as_list[STATS_ACK_NUM])
+
+         #print as_list
+         #buffer += line
+
+      logfile.close()
+   except:
+      print "[*] Error: couldn't open " + SENDR_LOG + " for reading"
+      sys.exit()
+
+
+   # write stats to logfile
    try:
       logfile = open(SENDR_LOG, 'a')
       logfile.write("\n\n")
       logfile.write("Total statistics\n")
-      logfile.write(" * Bytes transmitted:     " + str(bytes_transmitted) + "\n")
-      logfile.write(" * Packets sent:          " + str(packets_sent) + "\n")
-      logfile.write(" * Packets dropped:       " + str(packets_dropped) + "\n")
-      logfile.write(" * Packets transmitted:   " + str(packets_retrans) + "\n")
-      logfile.write(" * Duplicate ACKs:        " + str(dup_acks) + "\n")
+      logfile.write(" * Bytes transmitted:       " + str(bytes_transmitted) + "\n")
+      logfile.write(" * Packets sent:            " + str(len(packets_sent)) + "\n")
+      logfile.write(" * Packets dropped:         " + str(len(packets_dropped)) + "\n")
+      logfile.write(" * Packets retransmitted:   " + str(len(packets_retrans)) + "\n")
+      logfile.write(" * Duplicate ACKs:          " + str(dup_acks) + "\n")
       logfile.close()
    except:
       print "[*] Error: couldn't open " + SENDR_LOG + " for appending"
       sys.exit()
 
 
-# transmission is completed, produce the statistics
+# transmission is completed, produce statistics
 def do_stats_recvr():
+
+   if (debug): print "[*] Producing Receiver statistics"
+
+   # receiver stats:
+   # - Amount of Data Received (in bytes)
+   # - Number of Data Segments Received
+   # - Number of duplicate segments received (if any)
+
    bytes_recvd       = 0
-   packets_recvd     = 0
+   packets_recvd     = []
    dup_packets       = 0
 
+
+   # read logfile, collect stats
+   try:
+      #STATE             = STATE_INIT
+
+      # open file and ignore header lines
+      logfile = open(RECVR_LOG, 'r')
+      logfile.readline()
+      logfile.readline()
+      logfile.readline()
+      logfile.readline()
+
+
+      # turn each line into a list to gather stats
+      for line in logfile.readlines():
+
+         as_list = re.sub(' +', ',', line.strip()) 
+         as_list = as_list.split(',')
+         as_list[STATS_TIME]        = int(as_list[STATS_TIME])
+         as_list[STATS_SEQ_NUM]     = int(as_list[STATS_SEQ_NUM])
+         as_list[STATS_NUM_BYTES]   = int(as_list[STATS_NUM_BYTES])
+         as_list[STATS_ACK_NUM]     = int(as_list[STATS_ACK_NUM])
+
+         #print as_list
+
+         if (as_list[STATS_DIR] == "rcv"):
+            if (as_list[STATS_FLAGS] == "D"):
+               #STATE = STATE_CONNECTED
+
+               if (as_list[STATS_SEQ_NUM] in packets_recvd):
+                  dup_packets += 1
+
+               packets_recvd.append(as_list[STATS_SEQ_NUM])
+               bytes_recvd += as_list[STATS_NUM_BYTES]
+
+         #print as_list
+         #buffer += line
+
+      logfile.close()
+
+   except:
+      print "[*] Error: couldn't open " + RECVR_LOG + " for reading"
+      sys.exit()
+
+
+   # write statistics to logfile
    try:
       logfile = open(RECVR_LOG, 'a')
       logfile.write("\n\n")
       logfile.write("Total statistics\n")
       logfile.write(" * Bytes received:      " + str(bytes_recvd) + "\n")
-      logfile.write(" * Packets received:    " + str(packets_recvd) + "\n")
+      logfile.write(" * Packets received:    " + str(len(packets_recvd)) + "\n")
       logfile.write(" * Duplicate packets:   " + str(dup_packets) + "\n")
       logfile.close()
    except:
@@ -175,7 +301,3 @@ def do_stats_recvr():
       sys.exit()
 
 
-# receiver stats:
-# - Amount of Data Received (in bytes)
-# - Number of Data Segments Received
-# - Number of duplicate segments received (if any)

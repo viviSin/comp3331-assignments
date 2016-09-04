@@ -144,6 +144,7 @@ def main():
             p = set_fin(p)
 
             receiver.sendto(str(p), (sender_host, sender_port))
+            logger.log(host, current_time(), DIR_SENT, p)
 
       elif (receiver_state == STATE_TEARDOWN):
 
