@@ -6,7 +6,7 @@
 # Usage: python receiver.py <receiver port> <filename>
 
 
-import sys, socket, logger, time
+import sys, socket, logger, time, os, glob, datetime
 from packet import *
 
 
@@ -26,8 +26,6 @@ DIR_DROP             = 2
 # global variables
 debug                = True
 receiver_state       = STATE_INACTIVE
-receiver_syn_acc     = 0
-receiver_ack_acc     = 0
 receiver_start_time  = 0
 host                 = HOST_RECVR
 
@@ -40,7 +38,9 @@ def main():
 
    if (debug): print "receiver state: " + str(receiver_state)
 
-   if (not debug):
+   #if (not debug):
+   if (True):
+
       # defensive programming-- validating arguments
       if (len(sys.argv) != 3):
          sys.exit("usage: python receiver.py <receiver port> <filename>")
@@ -49,7 +49,7 @@ def main():
          sys.exit("usage: python receiver.py <receiver port> <filename>")
 
       receiver_host        = "localhost"
-      receiver_port        = sys.argv[1]
+      receiver_port        = int(sys.argv[1])
       receiver_filename    = sys.argv[2]
 
    else:
@@ -61,6 +61,10 @@ def main():
 
    receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
    receiver.bind((receiver_host, receiver_port))
+
+
+   receiver_seq_acc = 0
+   receiver_ack_acc = 0
 
    while True:
       data, sender = receiver.recvfrom(receiver_port)
@@ -106,6 +110,12 @@ def main():
 
          if (is_ack(p) and get_seq_num(p) == 1 and get_ack_num(p) == 1):
             receiver_state = STATE_CONNECTED
+
+            receiver_seq_num = 0
+            receiver_ack_num = 0
+
+            check_existing_file(receiver_filename)
+
             print "[*] connected to " + sender_host + ":" + str(sender_port)
 
       elif (receiver_state == STATE_CONNECTED):
@@ -116,16 +126,31 @@ def main():
             # send ACK
 
             buffer = get_data(p)
-            append_to_file(receiver_filename, buffer)
-
             seq_num = get_seq_num(p)
 
-            p = create_packet()
-            p = set_ack(p)
-            p = set_ack_num(p, seq_num + 1)
+            if (seq_num == receiver_ack_num):
+               # packet arrived is next in order
+               p = create_packet()
+               p = set_ack(p)
+               p = set_ack_num(p, seq_num + len(buffer))
 
-            receiver.sendto(str(p), (sender_host, sender_port))
-            logger.log(host, current_time(), DIR_SENT, p)
+               receiver.sendto(str(p), (sender_host, sender_port))
+               logger.log(host, current_time(), DIR_SENT, p)
+
+               receiver_ack_num = seq_num + len(buffer)
+
+               append_to_file(receiver_filename, buffer)
+
+
+            else:
+               # packet arrived and is out of order
+               p = create_packet()
+               p = set_ack(p)
+               p = set_ack_num(p, receiver_ack_num)
+
+               receiver.sendto(str(p), (sender_host, sender_port))
+               logger.log(host, current_time(), DIR_SENT, p)
+
 
          if (is_fin(p)):
             if (debug): print "teardown (R): FIN received. sending ACK"
@@ -179,5 +204,24 @@ def current_time():
    if (debug): print "CURRENT TIME CALLED: " + str(int(diff))
    if (debug): print "\t" + (str(time.time())) + " - " + str(receiver_start_time)
    return int(diff)
+
+
+# check if an existing file already exists
+def check_existing_file(filename):
+   result = glob.glob(filename)
+
+   if (len(result) > 0):
+      print "[*] Previous output file detected. Backing up.."
+
+      for f in result:
+         mtime = os.path.getctime(f)
+         mtime_readable = datetime.datetime.fromtimestamp(mtime)   
+         filename_split = f.split('.', 2)
+         new_filename = str(filename_split[0]) + " " + str(mtime_readable) + ".txt"
+         print "\t" + f.ljust(20) + " -> ".ljust(7) + new_filename
+         os.rename(f, new_filename)
+      
+      print ""
+
 
 main()

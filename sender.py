@@ -6,7 +6,10 @@
 # usage: python sender.py receiver_host_ip receiver_port file.txt MWS MSS timeout pdrop seed
 
 
-import sys, time, timeit, socket, logger, random, PLD
+# python modules
+import sys, time, timeit, socket, random, collections
+# my modules
+import logger, PLD
 from packet import *
 
 
@@ -36,7 +39,8 @@ def main():
    global sender_start_time
    global host
 
-   if (not debug):
+   #if (not debug):
+   if (True):
 
       # defensive programming-- validating arguments
       if (len(sys.argv) != 9):
@@ -46,24 +50,36 @@ def main():
          sys.exit("usage: python sender.py receiver_host_ip receiver_port file.txt MWS MSS timeout pdrop seed")
 
       receiver_host	   = sys.argv[1]
-      receiver_port	   = sys.argv[2]
+      receiver_port	   = int(sys.argv[2])
       sender_filename	= sys.argv[3]
-      sender_mws	      = sys.argv[4]
-      sender_mss	      = sys.argv[5]
-      sender_timeout	   = sys.argv[6]
-      sender_pdrop	   = sys.argv[7]
-      sender_seed	      = sys.argv[8]
+      sender_mws	      = int(sys.argv[4])
+      sender_mss	      = int(sys.argv[5])
+      sender_timeout	   = float(sys.argv[6])
+      sender_pdrop	   = float(sys.argv[7])
+      sender_seed	      = int(sys.argv[8])
 
    else:
       receiver_host	   = "localhost"
       receiver_port	   = 7999
-      sender_filename	= "wot"
+      #sender_filename	= "wot"
       #sender_filename	= "tests/test1.txt"
+      sender_filename	= "tests/test2.txt"
       sender_mws	      = 5
       sender_mss	      = 2
       sender_timeout	   = 3
       sender_pdrop	   = 0
       sender_seed	      = time.time()
+
+   
+   if (debug):
+      print "receiver_host: " + receiver_host
+      print "receiver_port: " + str(receiver_port)
+      print "sender_filename: " + sender_filename
+      print "sender_mws: " + str(sender_mws)
+      print "sender_mss: " + str(sender_mss)
+      print "sender_timeout: " + str(type(sender_timeout)) + " " + str(sender_timeout)
+      print "sender_pdrop: " + str(sender_pdrop)
+      print "sender_seed: " + str(sender_seed)
 
 
    # seed
@@ -151,18 +167,6 @@ def handshake(receiver, receiver_host, receiver_port, sender_timeout):
 
 
 
-# open/read file
-def read_file(filename):
-
-   try:
-      file_descriptor = open(filename, "r")
-      buffer = file_descriptor.read()
-      file_descriptor.close()
-   except:
-      sys.exit("fatal: no such file " + filename + " " + e)
-
-   return buffer
-
 
 # perform reliable data transfer
 def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss, 
@@ -173,6 +177,7 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
    window         = []
    window_base    = 0
    next_segment   = 0
+   acks_recvd     = []
 
    while (file_sent == False):
       # fill window, send packets
@@ -194,6 +199,7 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
       
       # wait for ACKs
       try:
+
          response, addr = receiver.recvfrom(1024)
          p = eval(response)
          logger.log(host, current_time(), DIR_RECV, p)
@@ -209,16 +215,28 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
             else:
                i = 0
 
+               # remove any predecessing packets from window
                while (i < len(window)):
                   if (window[i] < ack_num):
                      del window[i]
                   i += 1
 
                # get new base
-               window_base = window[0]
+               if (len(window)):
+                  window_base = window[0]
+
+               # keep track of ACK number, check if fast retransmit triggered
+               acks_recvd.append(ack_num)
+               count = collections.Counter(acks_recvd)
+               if (count[ack_num] == 4):
+                  p = new_data_packet(buffer, ack_num, sender_mss)
+                  PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, seed, sender_pdrop)
+                  if (debug): print "[*] Fast retransmit triggered. ACK num " + str(ack_num)
+
 
          else:
             if (debug): print "[*] error: received non-ack packet during rdt"
+
 
       except socket.timeout:
 
@@ -231,6 +249,11 @@ def rdt(receiver, receiver_host, receiver_port, buffer, sender_mss,
             p = new_data_packet(buffer, window[i], sender_mss)
             PLD.handle(receiver, p, current_time(), receiver_host, receiver_port, seed, sender_pdrop)
             i += 1;
+
+      else:
+         # break out after receiving a packet
+         print "else? (`pass`ing)"
+         pass
 
 
 # teardown connection
@@ -302,6 +325,18 @@ def teardown(receiver, receiver_host, receiver_port):
 
 ## helper functions
 
+
+# open/read file
+def read_file(filename):
+
+   try:
+      file_descriptor = open(filename, "r")
+      buffer = file_descriptor.read()
+      file_descriptor.close()
+   except:
+      sys.exit("fatal: no such file " + filename + " " + e)
+
+   return buffer
 
 # get current time elapsed
 def current_time():
