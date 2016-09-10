@@ -1,3 +1,4 @@
 #!/bin/sh
 
-python receiver.py
+# Usage: python receiver.py <receiver port> <filename>
+python receiver.py 7999 "wot-out"

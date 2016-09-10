@@ -1,3 +1,21 @@
 #!/bin/sh
 
-python sender.py
+# usage: python sender.py receiver_host_ip receiver_port file.txt MWS MSS timeout pdrop seed
+
+# debug
+# python sender.py
+#python sender.py "localhost" 7999 "tests/test1.txt" 3 13 1 0.5 300
+python sender.py "localhost" 7999 "tests/test1.txt" 10 50 1 0.2 300
+
+# report
+
+# 3a
+# pdrop = 0.1 (then increased to 0.3)
+# MWS = 500 bytes
+# mss = 50 bytes
+# seed = 300
+# file = test1.txt
+# timeout = user defined
+#python sender.py "localhost" 7999 "tests/test1.txt" 500 50 1 0.1 300
+
+

@@ -1,3 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
-# TODO
+# debug is on
+
